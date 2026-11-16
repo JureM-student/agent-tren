@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<title>Agent Tren</title>
+<style>
+  :root {
+    --bg: #1b1b1d;
+    --card: #262628;
+    --card-2: #2f2f32;
+    --line: #353538;
+    --text: #f4f4f5;
+    --muted: #a1a1a6;
+    --dim: #6e6e73;
+    --lime: #d7f531;
+    --lime-ink: #151a00;
+    --track: #3a3a3d;
+    --red: #ff4d5e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; overflow: hidden; user-select: none; }
+  body {
+    font-family: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    color: var(--text);
+    font-size: 12px;
+    -webkit-font-smoothing: antialiased;
+  }
+  #panel {
+    display: flex; flex-direction: column;
+    max-height: calc(100vh - 12px);
+    background: var(--bg);
+    border: 1px solid #2c2c2f;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    overflow: hidden;
+    margin: 6px;
+  }
+
+  /* header */
+  .head {
+    display: flex; align-items: center; gap: 6px;
+    padding: 9px 10px 8px 12px;
+    -webkit-app-region: drag;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 6px var(--lime); }
+  .title { font-weight: 700; font-size: 12.5px; letter-spacing: -.1px; }
+  .count { color: var(--dim); font-weight: 600; }
+  .head .spacer { flex: 1; }
+  .icon-btn {
+    -webkit-app-region: no-drag;
+    width: 22px; height: 22px; border-radius: 6px; border: 0; background: transparent;
+    color: var(--muted); display: grid; place-items: center; cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--card-2); color: var(--text); }
+  .icon-btn svg { width: 13px; height: 13px; }
+  .head .back { margin-right: 2px; }
+  .mini-bots { display: flex; gap: 3px; }
+  .mini-bots svg { width: 16px; height: 15px; }
+
+  #list, #detail { overflow-y: auto; min-height: 0; }
+  #list::-webkit-scrollbar, #detail::-webkit-scrollbar { width: 5px; }
+  #list::-webkit-scrollbar-thumb, #detail::-webkit-scrollbar-thumb { background: #3a3a3d; border-radius: 5px; }
+  .head { flex: none; }
+  #list { padding: 0 8px 8px; display: flex; flex-direction: column; gap: 6px; }
+  .collapsed #list, .collapsed #detail { display: none; }
+
+  /* card */
+  .card {
+    background: var(--card);
+    border-radius: 10px;
+    padding: 9px 8px 10px 6px;
+    display: grid;
+    grid-template-columns: 44px 1fr 22px;
+    gap: 0 8px;
+    border: 1.5px solid transparent;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .card:hover { background: #2b2b2e; }
+  .card.attn { border-color: var(--lime); box-shadow: 0 0 0 3px rgba(215,245,49,.12); cursor: default; }
+  .card.attn:hover { background: var(--card); }
+  .bot { display: grid; place-items: center; padding-top: 2px; }
+  .bot svg { width: 34px; height: 32px; overflow: visible; }
+  .bot svg .ant { transform-origin: 18px 5px; }
+  .bot svg.m-work .ant { animation: ping 1.6s ease-in-out infinite; }
+  .bot svg.m-alert .ant { filter: drop-shadow(0 0 3px var(--lime)); animation: ping .9s ease-in-out infinite; }
+  @keyframes ping { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.8); } }
+  .info { min-width: 0; }
+  .name { font-weight: 700; font-size: 13px; letter-spacing: -.15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sub { color: var(--muted); font-size: 11.5px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sub.hl { color: var(--lime); font-weight: 600; }
+  .prog-label { font-size: 11px; font-weight: 700; margin-top: 4px; color: #d4d4d8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prog-label b { color: var(--lime); font-weight: 800; margin-right: 3px; }
+  .bar { height: 3px; background: var(--track); border-radius: 3px; margin-top: 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--lime); border-radius: 3px; transition: width .4s ease; }
+  .bar.indet i { width: 35% !important; animation: slide 1.4s ease-in-out infinite; }
+  @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(290%); } }
+  .side { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 2px; }
+  .side .icon-btn { width: 20px; height: 20px; }
+  .side .icon-btn svg { width: 12px; height: 12px; }
+  .close-confirm {
+    -webkit-app-region: no-drag; border: 0; background: var(--red); color: white; font-weight: 700;
+    font-size: 10px; border-radius: 10px; padding: 3px 7px; cursor: pointer; margin-top: 2px;
+  }
+
+  /* prompts inside a card */
+  .prompt { grid-column: 1 / -1; margin-top: 10px; background: var(--card-2); border-radius: 8px; padding: 9px; }
+  .cmd {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 10.5px; color: var(--muted);
+    background: #1f1f21; border-radius: 6px; padding: 7px 8px; word-break: break-all;
+    max-height: 70px; overflow: auto;
+  }
+  .cmd b { color: var(--dim); font-weight: 400; }
+  .btns { display: flex; gap: 6px; margin-top: 8px; }
+  .btn {
+    border: 0; border-radius: 999px; padding: 5px 12px; font: inherit; font-weight: 700; font-size: 11.5px;
+    background: #3a3a3d; color: #e4e4e7; cursor: pointer;
+  }
+  .btn:hover { filter: brightness(1.15); }
+  .btn.primary { background: var(--lime); color: var(--lime-ink); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .tag {
+    display: inline-block; background: var(--lime); color: var(--lime-ink); font-weight: 800; font-size: 9px;
+    letter-spacing: .6px; padding: 2px 5px; border-radius: 4px; text-transform: uppercase;
+  }
+  .q { font-weight: 700; font-size: 12.5px; margin: 6px 0 7px; }
+  .opt {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin-top: 4px; border-radius: 6px;
+    background: #38383b; border: 1px solid transparent; cursor: pointer; font-weight: 600; font-size: 11.5px;
+  }
+  .opt:hover { background: #3f3f42; }
+  .opt .r { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--dim); flex: none; }
+  .opt.sq .r { border-radius: 2px; }
+  .opt.on { border-color: var(--lime); background: #333336; }
+  .opt.on .r { background: var(--lime); border-color: var(--lime); }
+  .opt small { display: block; color: var(--dim); font-weight: 500; font-size: 10.5px; margin-top: 1px; }
+  .qstep { color: var(--dim); font-size: 10px; margin-left: 6px; font-weight: 600; }
+
+  /* detail view */
+  #detail { padding: 0 10px 10px; display: none; }
+  .detail-on #list { display: none; }
+  .detail-on #detail { display: block; }
+  .d-top { display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: center; padding: 2px 0 10px; }
+  .d-top .name { font-size: 14px; }
+  .todos { list-style: none; display: flex; flex-direction: column; gap: 7px; padding: 4px 2px 10px; }
+  .todos li { display: flex; align-items: center; gap: 8px; color: #c7c7cc; font-size: 11.5px; }
+  .todos li.completed { color: var(--dim); }
+  .todos li.in_progress { color: var(--text); font-weight: 700; }
+  .ck { width: 13px; height: 13px; border-radius: 50%; flex: none; display: grid; place-items: center; border: 1.5px solid #555558; }
+  .completed .ck { background: #5a5a5e; border-color: #5a5a5e; }
+  .completed .ck::after { content: ""; width: 5px; height: 3px; border: 1.5px solid #1b1b1d; border-top: 0; border-right: 0; transform: rotate(-45deg) translateY(-1px); }
+  .in_progress .ck { border-color: var(--lime); border-right-color: transparent; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty { color: var(--dim); font-size: 11.5px; padding: 4px 2px 10px; }
+  .term { background: #141415; border: 1px solid #2a2a2c; border-radius: 8px; padding: 8px 9px; font-family: "Cascadia Code", Consolas, monospace; font-size: 10.5px; }
+  .term .tl { color: var(--muted); font-family: inherit; font-size: 10px; margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
+  .term .tl::before { content: ""; width: 9px; height: 7px; border: 1px solid var(--lime); border-radius: 2px; }
+  .term .c { color: var(--lime); word-break: break-all; }
+  .term pre { color: #b4b4b8; white-space: pre-wrap; word-break: break-all; margin-top: 4px; font-family: inherit; max-height: 90px; overflow: hidden; }
+
+  .msgs { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; }
+  .msg { background: var(--card); border-radius: 8px; padding: 7px 9px; font-size: 11.5px; line-height: 1.45; color: #d4d4d8; white-space: pre-wrap; max-height: 150px; overflow-y: auto; user-select: text; }
+  .msg span { display: block; font-size: 9.5px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--dim); margin-bottom: 2px; }
+  .msg.ai span { color: var(--lime); }
+  .msg::-webkit-scrollbar { width: 4px; } .msg::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+  .banner { display: flex; align-items: center; gap: 8px; background: rgba(215,245,49,.08); border: 1px solid rgba(215,245,49,.35); border-radius: 10px; padding: 8px 9px; }
+  .banner div { flex: 1; min-width: 0; }
+  .banner b { display: block; font-size: 11.5px; }
+  .banner span { color: var(--muted); font-size: 10.5px; }
+  .card.agent { margin-left: 18px; position: relative; padding-top: 7px; padding-bottom: 8px; }
+  .card.agent::before { content: ""; position: absolute; left: -11px; top: -7px; width: 8px; height: 26px; border-left: 1.5px solid #3a3a3d; border-bottom: 1.5px solid #3a3a3d; border-bottom-left-radius: 6px; }
+  .card.agent .bot svg { width: 27px; height: 26px; }
+  .card.agent .name { font-size: 12px; }
+  .atype { color: var(--dim); font-weight: 700; }
+  .sub.warn { color: #ff8a65; font-weight: 600; }
+  .card.agent.done { opacity: .75; }
+  .none small { display: block; margin-top: 6px; font-size: 10px; color: #4f4f54; }
+  .none { color: var(--dim); text-align: center; padding: 14px 0 16px; font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <div class="head" id="head"></div>
+  <div id="list"></div>
+  <div id="detail"></div>
+</div>
+
+<script>
+const COLORS = ["#4f7dff", "#f2559f", "#ff9a3c", "#9466ff", "#22c3a6", "#ff5f57", "#e3c12d", "#3fb4ff"];
+const ICON = {
+  sound: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h2.5L9 3v10L5.5 10H3z"/><path d="M11.5 5.5a3.5 3.5 0 010 5"/></svg>',
+  mute: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h2.5L9 3v10L5.5 10H3z"/><path d="M11.5 6.5l3 3M14.5 6.5l-3 3"/></svg>',
+  up: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l4-4 4 4"/></svg>',
+  down: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>',
+  x: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
+  open: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="11" height="11" rx="3"/><path d="M6.5 9.5l3-3M7 6.5h2.5V9"/></svg>',
+  back: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4L6 8l4 4"/></svg>',
+};
+
+let state = [];
+let detailId = null;
+let collapsed = false;
+let muted = false;
+let connected = true;
+let confirmClose = null;
+const colorOf = {};          // sessionId -> color
+const qAnswers = {};         // requestId -> { step, picks: {question: [labels]} }
+let lastAttn = new Set();
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function color(id) {
+  if (!colorOf[id]) {
+    const used = new Set(Object.values(colorOf));
+    colorOf[id] = COLORS.find((c) => !used.has(c)) || COLORS[Object.keys(colorOf).length % COLORS.length];
+  }
+  return colorOf[id];
+}
+
+// the robot from the Agent Tren logo: antenna, wide body, round eyes
+// mood: work (antenna pulses), calm, alert (big eyes + lit antenna), happy (^^), off (stopped / limit)
+function bot(c, mood) {
+  const ink = "#1b1b1d";
+  const eyes = mood === "happy"
+    ? `<path d="M7.6 22.6q3.2-4.4 6.4 0M22 22.6q3.2-4.4 6.4 0" stroke="${ink}" stroke-width="2.3" fill="none" stroke-linecap="round"/>`
+    : mood === "alert"
+    ? `<circle cx="10.8" cy="21.5" r="4.6" fill="${ink}"/><circle cx="25.2" cy="21.5" r="4.6" fill="${ink}"/><circle cx="12" cy="20.2" r="1.3" fill="#fff"/><circle cx="26.4" cy="20.2" r="1.3" fill="#fff"/>`
+    : mood === "off"
+    ? `<path d="M7.4 22h6.8M21.8 22h6.8" stroke="${ink}" stroke-width="2.3" stroke-linecap="round"/>`
+    : `<circle cx="10.8" cy="22" r="3.6" fill="${ink}"/><circle cx="25.2" cy="22" r="3.6" fill="${ink}"/>`;
+  const light = mood === "alert" ? "var(--lime)" : c;
+  return `<svg viewBox="0 0 36 34" class="m-${mood}">
+    <rect x="16.4" y="6" width="3.2" height="6" rx="1" fill="${c}"/>
+    <circle class="ant" cx="18" cy="5" r="3.9" fill="${light}"/>
+    <rect x="1" y="11" width="34" height="22" rx="7.5" fill="${c}"/>
+    ${eyes}</svg>`;
+}
+function moodOf(s) {
+  if (s.pending || s.status === "waiting") return "alert";
+  if (["interrupted", "limit", "error"].includes(s.status)) return "off";
+  if (s.status === "done") return "happy";
+  if (s.status === "working") return "work";
+  return "calm";
+}
+
+function progress(s) {
+  const todos = s.todos || [];
+  const total = todos.length;
+  const done = todos.filter((t) => t.status === "completed").length;
+  const cur = todos.find((t) => t.status === "in_progress");
+  let label;
+  if (s.status === "done") label = s.isAgent ? "Done" : "Your turn";
+  else if (s.status === "interrupted") label = "Stopped";
+  else if (s.status === "limit") label = "Limit reached";
+  else if (s.status === "error") label = "Error";
+  else if (cur) label = cur.active || cur.text;
+  else if (s.pending) label = "Waiting for you";
+  else label = s.status === "working" ? "Working" : s.status === "waiting" ? "Your turn" : "Idle";
+  const pct = total ? (done / total) * 100 : s.status === "done" ? 100 : 0;
+  return { total, done, label: shortLabel(label), pct, indet: !total && s.status === "working" };
+}
+function shortLabel(t) {
+  const w = String(t || "").trim().split(/\s+/);
+  const s = w.slice(0, 3).join(" ");
+  return s.length > 26 ? s.slice(0, 26) + "…" : s;
+}
+
+function oneLine(t) { return String(t || "").replace(/[#*`_>]/g, "").replace(/\s+/g, " ").trim(); }
+
+function titleOf(s) { return s.task ? `${s.project} · ${s.task}` : s.project; }
+
+function subOf(s) {
+  if (s.flash) return { text: s.flash, hl: true };
+  if (s.status === "interrupted") return { text: "Interrupted", warn: true };
+  if (s.status === "limit" || s.status === "error") return { text: s.activity, warn: true };
+  const running = (s.agents || []).filter((a) => a.status === "working").length;
+  if (running && s.status === "working" && (s.lastTool === "Agent" || s.lastTool === "Task") && !s.pending)
+    return { text: `Running ${running} agent${running > 1 ? "s" : ""}`, hl: false };
+  if (s.pending?.agentId && !s.isAgent) return { text: "an agent needs you", hl: true };
+  if (s.pending?.kind === "permission") return { text: "needs permission", hl: true };
+  if (s.pending?.kind === "question") return { text: "asks a question", hl: true };
+  if (s.isAgent && s.status === "done") return { text: s.lastReply ? oneLine(s.lastReply) : s.activity || "Done", hl: false };
+  if ((s.status === "done" || s.status === "waiting") && s.lastReply) return { text: oneLine(s.lastReply), hl: false };
+  if (s.status === "waiting") return { text: s.activity || "Waiting for you", hl: true };
+  return { text: s.activity || "", hl: false };
+}
+
+function progressHTML(s) {
+  const p = progress(s);
+  const frac = p.total ? `<b>${p.done}/${p.total}</b>` : "";
+  return `<div class="prog-label">${frac}${esc(p.label)}</div>
+    <div class="bar ${p.indet ? "indet" : ""}"><i style="width:${p.pct}%"></i></div>`;
+}
+
+function permissionHTML(s) {
+  const pd = s.pending;
+  const inp = pd.input || {};
+  const detail = inp.command || inp.file_path || inp.url || inp.pattern || inp.query || JSON.stringify(inp).slice(0, 140);
+  return `<div class="prompt">
+    <div class="cmd"><b>${esc(pd.tool)}:</b> ${esc(detail)}</div>
+    <div class="btns">
+      <button class="btn primary" data-act="allow" data-req="${pd.id}">Allow</button>
+      <button class="btn" data-act="deny" data-req="${pd.id}">Deny</button>
+      <button class="btn" data-act="vscode" data-req="${pd.id}">In VS Code</button>
+    </div></div>`;
+}
+
+function questionHTML(s) {
+  const pd = s.pending;
+  const qs = pd.input.questions || [];
+  const st = (qAnswers[pd.id] ||= { step: 0, picks: {} });
+  const q = qs[st.step];
+  if (!q) return "";
+  const picks = st.picks[q.question] || [];
+  const last = st.step === qs.length - 1;
+  const opts = (q.options || []).map((o) => {
+    const on = picks.includes(o.label);
+    return `<div class="opt ${q.multiSelect ? "sq" : ""} ${on ? "on" : ""}" data-opt="${esc(o.label)}" data-req="${pd.id}">
+      <span class="r"></span><span>${esc(o.label)}${o.description ? `<small>${esc(o.description)}</small>` : ""}</span></div>`;
+  }).join("");
+  return `<div class="prompt">
+    ${q.header ? `<span class="tag">${esc(q.header)}</span>` : ""}${qs.length > 1 ? `<span class="qstep">${st.step + 1}/${qs.length}</span>` : ""}
+    <div class="q">${esc(q.question)}</div>
+    ${opts}
+    <div class="btns">
+      <button class="btn primary" data-act="${last ? "send" : "next"}" data-req="${pd.id}" ${picks.length ? "" : "disabled"}>${last ? "Send" : "Next"}</button>
+      <button class="btn" data-act="vscode" data-req="${pd.id}">Type in VS Code</button>
+    </div></div>`;
+}
+
+function cardHTML(s) {
+  const sub = subOf(s);
+  const attn = !!s.pending && !s.pending.agentId;
+  const side = confirmClose === s.id
+    ? `<button class="close-confirm" data-act="close" data-sid="${s.id}">Close</button>`
+    : `<button class="icon-btn" title="Open in VS Code" data-act="open" data-sid="${s.id}">${ICON.open}</button>
+       <button class="icon-btn" title="Remove" data-act="askclose" data-sid="${s.id}">${ICON.x}</button>`;
+  return `<div class="card ${attn ? "attn" : ""}" data-sid="${s.id}">
+    <div class="bot">${bot(color(s.id), moodOf(s))}</div>
+    <div class="info">
+      <div class="name">${esc(titleOf(s))}</div>
+      <div class="sub ${sub.hl ? "hl" : ""} ${sub.warn ? "warn" : ""}">${esc(sub.text)}</div>
+      ${progressHTML(s)}
+    </div>
+    <div class="side">${side}</div>
+    ${attn && s.pending.kind === "permission" ? permissionHTML(s) : ""}
+    ${attn && s.pending.kind === "question" ? questionHTML(s) : ""}
+  </div>`;
+}
+
+// an agent is shown like a session: its own robot, name, what it's doing
+function asAgentView(s, a) {
+  return { ...a, isAgent: true, project: a.type, task: a.desc, pending: s.pending?.agentId === a.id ? s.pending : null, cwd: s.cwd };
+}
+
+function agentCardHTML(s, a) {
+  const v = asAgentView(s, a);
+  const sub = subOf(v);
+  const attn = !!v.pending;
+  return `<div class="card agent ${attn ? "attn" : ""} ${a.status === "done" ? "done" : ""}" data-sid="${s.id}" data-aid="${a.id}">
+    <div class="bot">${bot(color(a.id), moodOf(v))}</div>
+    <div class="info">
+      <div class="name"><span class="atype">${esc(a.type)}</span>${a.desc ? " · " + esc(a.desc) : ""}</div>
+      <div class="sub ${sub.hl ? "hl" : ""}">${esc(sub.text)}</div>
+      ${progressHTML(v)}
+    </div>
+    <div class="side"><button class="icon-btn" title="Hide" data-act="hideagent" data-aid="${a.id}">${ICON.x}</button></div>
+    ${attn && v.pending.kind === "permission" ? permissionHTML(v) : ""}
+    ${attn && v.pending.kind === "question" ? questionHTML(v) : ""}
+  </div>`;
+}
+
+const hiddenAgents = new Set();
+function visibleAgents(s) { return (s.agents || []).filter((a) => !hiddenAgents.has(a.id)); }
+function cardCount() { return state.reduce((n, s) => n + 1 + visibleAgents(s).length, 0); }
+
+function headHTML() {
+  if (detailId && !collapsed) {
+    const s = state.find((x) => x.id === detailId);
+    return `<button class="icon-btn back" data-act="back">${ICON.back}</button>
+      <div class="mini-bots">${state.map((x) => bot(color(x.id), moodOf(x)) + visibleAgents(x).map((a) => bot(color(a.id), moodOf(asAgentView(x, a)))).join("")).join("")}</div>
+      <div class="spacer"></div>${controls()}`;
+  }
+  return `<span class="dot"></span><span class="title" title="Agent Tren · created by Jure M">Agent Tren</span><span class="count">${cardCount()}</span>
+    <div class="spacer"></div>${controls()}`;
+}
+function controls() {
+  return `<button class="icon-btn" title="${muted ? "Unmute" : "Mute"}" data-act="mute">${muted ? ICON.mute : ICON.sound}</button>
+    <button class="icon-btn" title="${collapsed ? "Expand" : "Collapse"}" data-act="collapse">${collapsed ? ICON.down : ICON.up}</button>
+    <button class="icon-btn" title="Hide (Ctrl+Shift+Space)" data-act="hide">${ICON.x}</button>`;
+}
+
+function findDetail() {
+  for (const s of state) {
+    if (s.id === detailId) return s;
+    const a = (s.agents || []).find((x) => x.id === detailId);
+    if (a) return asAgentView(s, a);
+  }
+  return null;
+}
+
+function msgs(s) {
+  const ask = s.isAgent ? s.prompt : s.lastUser;
+  if (!ask && !s.lastReply) return "";
+  return `<div class="msgs">
+    ${ask ? `<div class="msg you"><span>${s.isAgent ? "Task" : "You"}</span>${esc(clip(ask, 220))}</div>` : ""}
+    ${s.lastReply ? `<div class="msg ai"><span>${s.isAgent ? "Result" : "Claude"}</span>${esc(clip(s.lastReply, 420))}</div>` : ""}
+  </div>`;
+}
+function clip(t, n) { t = String(t).trim(); return t.length > n ? t.slice(0, n) + "…" : t; }
+
+function detailHTML(s) {
+  const sub = subOf(s);
+  const todos = (s.todos || []).map((t) => `<li class="${t.status}"><span class="ck"></span>${esc(t.text)}</li>`).join("");
+  const term = s.terminal
+    ? `<div class="term"><div class="tl">Terminal</div><div class="c">$ ${esc(s.terminal.cmd)}</div>${s.terminal.out ? `<pre>${esc(s.terminal.out)}</pre>` : ""}</div>`
+    : "";
+  return `<div class="d-top"><div class="bot">${bot(color(s.id), moodOf(s))}</div>
+      <div class="info"><div class="name">${esc(titleOf(s))}</div><div class="sub ${sub.hl ? "hl" : ""} ${sub.warn ? "warn" : ""}">${esc(sub.text)}</div>${progressHTML(s)}</div></div>
+    ${s.pending && (s.isAgent || !s.pending.agentId) ? `<div class="card attn" style="display:block;padding:0 0 2px;margin-bottom:10px">${s.pending.kind === "permission" ? permissionHTML(s) : questionHTML(s)}</div>` : ""}
+    ${msgs(s)}
+    ${todos ? `<ul class="todos">${todos}</ul>` : ""}
+    ${!s.isAgent && visibleAgents(s).length ? `<div style="display:flex;flex-direction:column;gap:6px;margin:0 0 10px -18px">${visibleAgents(s).map((a) => agentCardHTML(s, a)).join("")}</div>` : ""}
+    ${term}`;
+}
+
+function render() {
+  const panel = document.getElementById("panel");
+  if (detailId && !findDetail()) detailId = null;
+  panel.classList.toggle("collapsed", collapsed);
+  panel.classList.toggle("detail-on", !!detailId);
+  document.getElementById("head").innerHTML = headHTML();
+  const banner = connected ? "" : `<div class="banner"><div><b>Not connected to Claude Code</b><span>Live status, permissions and questions need it.</span></div><button class="btn primary" data-act="connect">Connect</button></div>`;
+  document.getElementById("list").innerHTML = banner + (state.length ? state.map((s) => cardHTML(s) + visibleAgents(s).map((a) => agentCardHTML(s, a)).join("")).join("") : `<div class="none">No Claude Code sessions running<small>Agent Tren · created by Jure M</small></div>`);
+  const d = findDetail();
+  document.getElementById("detail").innerHTML = d ? detailHTML(d) : "";
+  requestAnimationFrame(() => {
+    // measure the full content height (not the clipped one) so the window can grow
+    panel.style.maxHeight = "none";
+    const h = panel.getBoundingClientRect().height + 12;
+    panel.style.maxHeight = "";
+    window.tren.resize(h);
+  });
+}
+
+// ---------- events ----------
+document.addEventListener("click", (ev) => {
+  const el = ev.target.closest("[data-act],[data-opt],.card[data-sid]");
+  if (!el) { if (confirmClose) { confirmClose = null; render(); } return; }
+
+  if (el.dataset.opt !== undefined) {
+    const s = state.find((x) => x.pending?.id === el.dataset.req);
+    if (!s) return;
+    const st = qAnswers[s.pending.id];
+    const q = s.pending.input.questions[st.step];
+    const cur = st.picks[q.question] || [];
+    st.picks[q.question] = q.multiSelect
+      ? (cur.includes(el.dataset.opt) ? cur.filter((x) => x !== el.dataset.opt) : [...cur, el.dataset.opt])
+      : [el.dataset.opt];
+    return render();
+  }
+
+  const act = el.dataset.act;
+  const sid = el.dataset.sid;
+  const req = el.dataset.req;
+  if (act !== "askclose") confirmClose = null;
+
+  switch (act) {
+    case "mute": muted = !muted; window.tren.setMuted(muted); break;
+    case "collapse": collapsed = !collapsed; window.tren.setCollapsed(collapsed); break;
+    case "hide": return window.tren.hide();
+    case "connect": window.tren.connect(); break;
+    case "hideagent": hiddenAgents.add(el.dataset.aid); if (detailId === el.dataset.aid) detailId = null; break;
+    case "back": detailId = null; break;
+    case "open": window.tren.openVSCode(sid); break;
+    case "askclose": confirmClose = sid; break;
+    case "close": window.tren.dismiss(sid); if (detailId === sid) detailId = null; break;
+    case "allow": case "deny": case "vscode": window.tren.decide({ id: req, action: act }); break;
+    case "next": qAnswers[req].step++; break;
+    case "send": {
+      const st = qAnswers[req];
+      const answers = {};
+      for (const [q, labels] of Object.entries(st.picks)) answers[q] = labels.join(", ");
+      window.tren.decide({ id: req, action: "send", answers });
+      delete qAnswers[req];
+      break;
+    }
+    default:
+      // clicking a card body opens the detail view (not while it needs input)
+      if (el.classList.contains("card") && !el.classList.contains("attn")) detailId = el.dataset.aid || el.dataset.sid;
+  }
+  ev.stopPropagation();
+  render();
+});
+
+// ---------- sound ----------
+let audio;
+function chime() {
+  if (muted) return;
+  try {
+    audio ||= new AudioContext();
+    const t = audio.currentTime;
+    [880, 1318.5].forEach((f, i) => {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t + i * 0.12);
+      g.gain.exponentialRampToValueAtTime(0.18, t + i * 0.12 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.12 + 0.35);
+      o.connect(g).connect(audio.destination);
+      o.start(t + i * 0.12); o.stop(t + i * 0.12 + 0.4);
+    });
+  } catch {}
+}
+
+window.tren.onPrefs((p) => {
+  if ("muted" in p) muted = p.muted;
+  if ("collapsed" in p) collapsed = p.collapsed;
+  if ("connected" in p) connected = p.connected;
+  render();
+});
+
+window.tren.onState((s) => {
+  state = s;
+  // chime when a session newly needs you or finishes
+  const attn = new Set(s.filter((x) => x.pending || x.status === "done" || x.status === "waiting").map((x) => x.id + ":" + (x.pending?.id || x.status)));
+  for (const k of attn) if (!lastAttn.has(k)) { chime(); break; }
+  lastAttn = attn;
+  render();
+});
+render();
+</script>
+</body>
+</html>

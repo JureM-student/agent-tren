@@ -1,0 +1,38 @@
+name: Bug report
+description: Something isn't working right
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you see instead? Screenshots help a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start a Claude Code session in VS Code
+        2. Ask Claude to ...
+        3. The widget shows ...
+  - type: input
+    id: version
+    attributes:
+      label: Agent Tren version
+      description: Tray icon → About Agent Tren
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: claude
+    attributes:
+      label: Claude Code version and where you run it
+      placeholder: "2.1.300, VS Code extension"
+  - type: textarea
+    id: log
+    attributes:
+      label: Event log (optional)
+      description: Tray icon → Open event log. Paste the lines from around the problem — check them for anything private first.
+      render: json
